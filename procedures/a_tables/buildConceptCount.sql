@@ -8,12 +8,8 @@ BEGIN
 
    DELETE FROM A_Anzahl_Konzept_Belege;
 
-   INSERT INTO A_Anzahl_Konzept_Belege(Id_Konzept,
-                                       Id_Ueberkonzept,
-                                       Anzahl_Allein,
-									   Anzahl_Allein_AK,
-                                       Anzahl_Komplett,
-                                       Dateiname)
+   INSERT INTO A_Anzahl_Konzept_Belege
+	(Id_Konzept, Id_Ueberkonzept, Anzahl_Allein, Anzahl_Allein_AK, Anzahl_Komplett, Dateiname)
         SELECT k.Id_Konzept,
                ue.Id_Ueberkonzept,
                  (SELECT count(*)
