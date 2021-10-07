@@ -15,23 +15,24 @@ BEGIN
 	DELETE FROM A_Referenzen;
 	
 	INSERT INTO A_Referenzen
-		SELECT Id_morph_Typ, CONCAT (lem.Quelle, '|', lem.Subvocem, '|', lem.Bibl_Verweis, '|', Link) AS Referenz
+		SELECT Id_morph_Typ, CONCAT (lem.Quelle, '|', lem.Subvocem, '|', lem.Bibl_Verweis, '|', Link, '|', Text_Referenz) AS Referenz
 		FROM morph_typen m 
 			JOIN VTBL_morph_Typ_Lemma USING (Id_morph_Typ)
 			JOIN Lemmata lem USING (Id_Lemma)
+		WHERE lem.Subvocem != '<vacat>'
 	UNION
-		SELECT m.Id_morph_Typ, CONCAT (lem.Quelle, '|', lem.Subvocem, '|', lem.Bibl_Verweis, '|', Link) AS Referenz
+		SELECT m.Id_morph_Typ, CONCAT (lem.Quelle, '|', lem.Subvocem, '|', lem.Bibl_Verweis, '|', Link, '|', Text_Referenz) AS Referenz
 		FROM morph_typen m
 			JOIN VTBL_morph_Typ_Bestandteile b USING (Id_morph_Typ)
 			JOIN morph_Typen m2 ON b.Id_Bestandteil = m2.Id_morph_Typ
 			JOIN VTBL_morph_Typ_Lemma v ON m2.Id_morph_Typ = v.Id_morph_Typ
 			JOIN Lemmata lem USING (Id_Lemma)
-		WHERE b.Id_morph_Typ != b.Id_Bestandteil AND NOT EXISTS (SELECT * FROM VTBL_morph_Typ_Lemma v2 JOIN lemmata l USING (Id_Lemma) WHERE v2.Id_morph_Typ = m.Id_morph_Typ AND l.Quelle != 'VA');
+		WHERE lem.Subvocem != '<vacat>' AND b.Id_morph_Typ != b.Id_Bestandteil AND NOT EXISTS (SELECT * FROM VTBL_morph_Typ_Lemma v2 JOIN lemmata l USING (Id_Lemma) WHERE v2.Id_morph_Typ = m.Id_morph_Typ AND l.Quelle != 'VA');
 	
 	DELETE FROM A_Basistyp_Referenzen;
 		
 	INSERT INTO A_Basistyp_Referenzen
-	SELECT Id_Basistyp, CONCAT (lem.Quelle, '|', lem.Subvocem, '|', lem.Bibl_Verweis, '|', Link) AS Referenz
+	SELECT Id_Basistyp, CONCAT (lem.Quelle, '|', lem.Subvocem, '|', lem.Bibl_Verweis, '|', Link, '|', Text_Referenz) AS Referenz
 	FROM Basistypen b 
 		JOIN VTBL_Basistyp_Lemma USING (Id_Basistyp)
 		JOIN Lemmata_Basistypen lem USING (Id_Lemma);
@@ -56,6 +57,7 @@ BEGIN
 	  Instance varchar(5000) CHARACTER SET utf8mb4 NOT NULL,
 	  Instance_Encoding enum('1','2','3','4') NOT NULL,
 	  Instance_Original varchar(5000) CHARACTER SET utf8mb4 NOT NULL,
+	  `Number` enum('','sg','pl','sg+pl') NOT NULL,
 	  Id_Informant int(10) unsigned NOT NULL,
 	  Instance_Source varchar(200) NOT NULL,
 	  id_stimulus int(10) unsigned NOT NULL,
@@ -70,6 +72,7 @@ BEGIN
 	  Year_Publication varchar(50) DEFAULT NULL,
 	  Year_Survey binary(0) DEFAULT NULL,
 	  Informant_Lang char(9) DEFAULT NULL,
+	  Informant_Dialect varchar(100) DEFAULT NULL,
 	  Type_Kind varchar(1) DEFAULT NULL,
 	  Id_Type int(11) unsigned DEFAULT NULL,
 	  Type varchar(200) DEFAULT NULL,
@@ -95,7 +98,8 @@ BEGIN
 	  KEY z_ling_id_concept_idx (Id_Concept) USING BTREE,
 	  KEY z_ling_id_type_idx (Id_Type,Type_Kind) USING BTREE,
 	  KEY z_ling_id_community_idx (Id_Community) USING BTREE,
-	  KEY z_ling_id_base_type_idx (Id_Base_Type) USING BTREE
+	  KEY z_ling_id_base_type_idx (Id_Base_Type) USING BTREE,
+	  INDEX instance_index (Instance(50)) USING BTREE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
    INSERT INTO z_ling_temp
@@ -105,6 +109,7 @@ BEGIN
 		t.Beleg,
 		t.Beleg_Codierung AS Beleg_Codierung,
 		t.Original AS Beleg_Original,
+		IF(t.Numerus IS NULL, '', t.Numerus) as Numerus,
 		i.Id_Informant,
 		CONCAT(s.Erhebung, '#', s.Karte, '#', s.Nummer, '#', IF(LOCATE('@', i.nummer) = 0, i.nummer, SUBSTR(i.nummer, 1, LOCATE('@', i.nummer) - 1)), '#', i.Ortsname) as Quelle_Beleg,
 		s.Id_Stimulus as Id_Stimulus,
@@ -119,6 +124,7 @@ BEGIN
 		IF(s.Erhebung = 'CROWD', (SELECT YEAR(Erstellt_Am) FROM va_xxx.Versionen WHERE Erstellt_Am > t.Erfasst_am ORDER BY Erstellt_Am ASC LIMIT 1), bib.Jahr) AS Publikationsjahr,
 		NULL AS Erhebungsjahr,
 		i.Sprache AS Sprache_Informant,
+		IF(d.Name = "no_dialect", NULL, d.Name) as Dialekt_Informant,
 		IF(Id_morph_Typ != 4144 AND Id_morph_Typ IS NOT NULL, 'L', NULL) AS Art_Typ,
 		IF(Id_morph_Typ = 4144, NULL, Id_morph_Typ) AS Id_Typ,
 		IF(Id_morph_Typ = 4144, NULL, m.Orth) AS Typ,
@@ -156,6 +162,7 @@ BEGIN
 		LEFT JOIN A_Basistyp_Referenzen br USING (Id_Basistyp)
 		LEFT JOIN Orte_Uebersetzungen ou USING (Id_Ort)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
+		LEFT JOIN dialects d ON Id_Dialekt = Id_Dialect
 	WHERE
 		(Grammatikalisch IS NULL OR Grammatikalisch = 0) AND
 		i.Georeferenz IS NOT NULL AND i.Georeferenz != '' AND GeometryType(i.Georeferenz) = 'POINT' AND i.Id_Gemeinde IS NOT NULL
@@ -168,6 +175,7 @@ BEGIN
 		t.Beleg,
 		t.Beleg_Codierung AS Beleg_Codierung,
 		t.Original AS Beleg_Original,
+		IF(t.Numerus IS NULL, '', t.Numerus) as Numerus,
 		i.Id_Informant,
 		CONCAT(s.Erhebung, '#', s.Karte, '#', s.Nummer, '#', IF(LOCATE('@', i.nummer) = 0, i.nummer, SUBSTR(i.nummer, 1, LOCATE('@', i.nummer) - 1)), '#', i.Ortsname) as Quelle_Beleg,
 		s.Id_Stimulus as Id_Stimulus,
@@ -182,6 +190,7 @@ BEGIN
 		IF(s.Erhebung = 'CROWD', (SELECT YEAR(Erstellt_Am) FROM va_xxx.Versionen WHERE Erstellt_Am > t.Erfasst_am ORDER BY Erstellt_Am ASC LIMIT 1), bib.Jahr) AS Publikationsjahr,
 		NULL AS Erhebungsjahr,
 		i.Sprache AS Sprache_Informant,
+		IF(d.Name = "no_dialect", NULL, d.Name) as Dialekt_Informant,
 		'P' AS Art_Typ,
 		Id_phon_Typ AS Id_Typ,
 		IF(p.IPA IS NULL OR p.IPA = '', IF(p.Original IS NULL OR p.Original = '', p.Beta, p.Original), p.IPA) AS Typ,
@@ -213,6 +222,7 @@ BEGIN
 		LEFT JOIN Konzepte k USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
+		LEFT JOIN dialects d ON Id_Dialekt = Id_Dialect
 	WHERE
 		(Grammatikalisch IS NULL OR Grammatikalisch = 0) AND
 		i.Georeferenz IS NOT NULL AND i.Georeferenz != '' AND GeometryType(i.Georeferenz) = 'POINT' AND i.Id_Gemeinde IS NOT NULL
@@ -225,6 +235,7 @@ BEGIN
 		t.Beleg,
 		t.Beleg_Codierung AS Beleg_Codierung,
 		t.Original AS Beleg_Original,
+		IF(t.Numerus IS NULL, '', t.Numerus) as Numerus,
 		i.Id_Informant,
 		CONCAT(s.Erhebung, '#', s.Karte, '#', s.Nummer, '#', IF(LOCATE('@', i.nummer) = 0, i.nummer, SUBSTR(i.nummer, 1, LOCATE('@', i.nummer) - 1)), '#', i.Ortsname) as Quelle_Beleg,
 		s.Id_Stimulus as Id_Stimulus,
@@ -239,6 +250,7 @@ BEGIN
 		IF(s.Erhebung = 'CROWD', (SELECT YEAR(Erstellt_Am) FROM va_xxx.Versionen WHERE Erstellt_Am > t.Erfasst_am ORDER BY Erstellt_Am ASC LIMIT 1), bib.Jahr) AS Publikationsjahr,
 		NULL AS Erhebungsjahr,
 		i.Sprache AS Sprache_Informant,
+		IF(d.Name = "no_dialect", NULL, d.Name) as Dialekt_Informant,
 		NULL AS Art_Typ,
 		NULL AS Id_Typ,
 		NULL AS Typ,
@@ -271,6 +283,7 @@ BEGIN
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN Orte_Uebersetzungen ou USING (Id_Ort)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
+		LEFT JOIN dialects d ON Id_Dialekt = Id_Dialect
 	WHERE
 		m.Id_morph_Typ IS NULL AND p.Id_phon_Typ IS NULL
 		AND (Grammatikalisch IS NULL OR Grammatikalisch = 0) AND
@@ -284,6 +297,7 @@ BEGIN
 		IF(t.IPA = '' OR t.IPA IS NULL OR t.IPA LIKE '%XXX%', IF(t.Original = '' OR t.Original IS NULL OR t.Original LIKE '%XXX%', t.Tokengruppe, t.Original), t.IPA) as Beleg,
 		IF(t.IPA = '' OR t.IPA IS NULL OR t.IPA LIKE '%XXX%', IF(t.Original = '' OR t.Original LIKE '%XXX%', 4, 3), IF(VA_IPA, 2, 1)) AS Beleg_Codierung,
 		IF(t.Original LIKE '%XXX%', '', t.Original) AS Beleg_Original,
+		IF(t.Numerus IS NULL, '', t.Numerus) as Numerus,
 		i.Id_Informant,
 		CONCAT(s.Erhebung, '#', s.Karte, '#', s.Nummer, '#', IF(LOCATE('@', i.nummer) = 0, i.nummer, SUBSTR(i.nummer, 1, LOCATE('@', i.nummer) - 1)), '#', i.Ortsname) as Quelle_Beleg,
 		s.Id_Stimulus as Id_Stimulus,
@@ -298,6 +312,7 @@ BEGIN
 		IF(s.Erhebung = 'CROWD', (SELECT YEAR(Erstellt_Am) FROM va_xxx.Versionen WHERE Erstellt_Am > t.Erfasst_am ORDER BY Erstellt_Am ASC LIMIT 1), bib.Jahr) AS Publikationsjahr,
 		NULL AS Erhebungsjahr,
 		i.Sprache AS Sprache_Informant,
+		IF(d.Name = "no_dialect", NULL, d.Name) as Dialekt_Informant,
 		IF(Id_morph_Typ != 4144 AND Id_morph_Typ IS NOT NULL, 'L', NULL) AS Art_Typ,
 		IF(Id_morph_Typ = 4144, NULL, Id_morph_Typ) AS Id_Typ,
 		IF(Id_morph_Typ = 4144, NULL, k.Orth) AS Typ,
@@ -334,6 +349,7 @@ BEGIN
 		LEFT JOIN A_Referenzen r USING (Id_morph_Typ)
 		LEFT JOIN A_Basistyp_Referenzen br USING (Id_Basistyp)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
+		LEFT JOIN dialects d ON Id_Dialekt = Id_Dialect
 	WHERE
 		(Grammatikalisch IS NULL OR Grammatikalisch = 0) AND
 		i.Georeferenz IS NOT NULL AND i.Georeferenz != '' AND GeometryType(i.Georeferenz) = 'POINT' AND i.Id_Gemeinde IS NOT NULL
@@ -346,6 +362,7 @@ BEGIN
 		IF(t.IPA = '' OR t.IPA IS NULL OR t.IPA LIKE '%XXX%', IF(t.Original = '' OR t.Original IS NULL OR t.Original LIKE '%XXX%', t.Tokengruppe, t.Original), t.IPA) as Beleg,
 		IF(t.IPA = '' OR t.IPA IS NULL OR t.IPA LIKE '%XXX%', IF(t.Original = '' OR t.Original LIKE '%XXX%', 4, 3), IF(VA_IPA, 2, 1)) AS Beleg_Codierung,
 		IF(t.Original LIKE '%XXX%', '', t.Original) AS Beleg_Original,
+		IF(t.Numerus IS NULL, '', t.Numerus) as Numerus,
 		i.Id_Informant,
 		CONCAT(s.Erhebung, '#', s.Karte, '#', s.Nummer, '#', IF(LOCATE('@', i.nummer) = 0, i.nummer, SUBSTR(i.nummer, 1, LOCATE('@', i.nummer) - 1)), '#', i.Ortsname) as Quelle_Beleg,
 		s.Id_Stimulus as Id_Stimulus,
@@ -360,6 +377,7 @@ BEGIN
 		IF(s.Erhebung = 'CROWD', (SELECT YEAR(Erstellt_Am) FROM va_xxx.Versionen WHERE Erstellt_Am > t.Erfasst_am ORDER BY Erstellt_Am ASC LIMIT 1), bib.Jahr) AS Publikationsjahr,
 		NULL AS Erhebungsjahr,
 		i.Sprache AS Sprache_Informant,
+		IF(d.Name = "no_dialect", NULL, d.Name) as Dialekt_Informant,
 		'P' AS Art_Typ,
 		p.Id_phon_Typ AS Id_Typ,
 		IF(p.IPA IS NULL OR p.IPA = '', IF(p.Original IS NULL OR p.Original = '', p.Beta, p.Original), p.IPA) AS Typ,
@@ -391,6 +409,7 @@ BEGIN
 		LEFT JOIN Konzepte ko USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
+		LEFT JOIN dialects d ON Id_Dialekt = Id_Dialect
 	WHERE
 		(Grammatikalisch IS NULL OR Grammatikalisch = 0) AND
 		i.Georeferenz IS NOT NULL AND i.Georeferenz != '' AND GeometryType(i.Georeferenz) = 'POINT' AND i.Id_Gemeinde IS NOT NULL
@@ -403,6 +422,7 @@ BEGIN
 		IF(t.IPA = '' OR t.IPA IS NULL OR t.IPA LIKE '%XXX%', IF(t.Original = '' OR t.Original IS NULL OR t.Original LIKE '%XXX%', t.Tokengruppe, t.Original), t.IPA) as Beleg,
 		IF(t.IPA = '' OR t.IPA IS NULL OR t.IPA LIKE '%XXX%', IF(t.Original = '' OR t.Original LIKE '%XXX%', 4, 3), IF(VA_IPA, 2, 1)) AS Beleg_Codierung,
 		IF(t.Original LIKE '%XXX%', '', t.Original) AS Beleg_Original,
+		IF(t.Numerus IS NULL, '', t.Numerus) as Numerus,
 		i.Id_Informant,
 		CONCAT(s.Erhebung, '#', s.Karte, '#', s.Nummer, '#', IF(LOCATE('@', i.nummer) = 0, i.nummer, SUBSTR(i.nummer, 1, LOCATE('@', i.nummer) - 1)), '#', i.Ortsname) as Quelle_Beleg,
 		s.Id_Stimulus as Id_Stimulus,
@@ -417,6 +437,7 @@ BEGIN
 		IF(s.Erhebung = 'CROWD', (SELECT YEAR(Erstellt_Am) FROM va_xxx.Versionen WHERE Erstellt_Am > t.Erfasst_am ORDER BY Erstellt_Am ASC LIMIT 1), bib.Jahr) AS Publikationsjahr,
 		NULL AS Erhebungsjahr,
 		i.Sprache AS Sprache_Informant,
+		IF(d.Name = "no_dialect", NULL, d.Name) as Dialekt_Informant,
 		NULL AS Art_Typ,
 		NULL AS Id_Typ,
 		NULL AS Typ,
@@ -448,6 +469,7 @@ BEGIN
 		LEFT JOIN Konzepte ko USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
+		LEFT JOIN dialects d ON Id_Dialekt = Id_Dialect
 	WHERE
 		m.Id_morph_Typ IS NULL AND p.Id_phon_Typ IS NULL
 		AND (Grammatikalisch IS NULL OR Grammatikalisch = 0) AND

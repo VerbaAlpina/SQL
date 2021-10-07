@@ -17,7 +17,8 @@ CREATE VIEW V_Tokengruppen AS
 		Erfasst_Von, 
 		Erfasst_Am, 
 		Version,
-		Tokengruppen.Bemerkung
+		Tokengruppen.Bemerkung,
+		Id_Dialekt
 FROM Tokens t 
 	JOIN Tokengruppen USING (Id_Tokengruppe) 
 	JOIN Stimuli USING (Id_Stimulus)

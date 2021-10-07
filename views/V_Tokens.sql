@@ -39,7 +39,8 @@ SELECT
 		)
 	)) as Beleg,
 	IF(t.IPA = '' OR t.IPA IS NULL, IF(t.Original = '' OR t.Original IS NULL, 4, 3), IF(VA_IPA, 2, 1)) AS Beleg_Codierung,
-	Erfasst_am
+	Erfasst_am,
+	Id_Dialekt
 FROM Tokens t 
 JOIN Stimuli USING (Id_Stimulus) 
 JOIN Bibliographie ON Erhebung = Abkuerzung$$
