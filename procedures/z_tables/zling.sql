@@ -100,6 +100,10 @@ BEGIN
 	  KEY z_ling_id_type_idx (Id_Type,Type_Kind) USING BTREE,
 	  KEY z_ling_id_community_idx (Id_Community) USING BTREE,
 	  KEY z_ling_id_base_type_idx (Id_Base_Type) USING BTREE,
+	  KEY z_ling_type_lang_idx (Type_Lang) USING BTREE,
+	  KEY z_ling_base_lang_idx (Base_Type_Lang) USING BTREE,
+	  KEY z_ling_type_kind_idx (Type_Kind) USING BTREE,
+	  KEY z_ling_qid_concept_idx (QID,Id_Concept) USING BTREE,
 	  INDEX instance_index (Instance(50)) USING BTREE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
