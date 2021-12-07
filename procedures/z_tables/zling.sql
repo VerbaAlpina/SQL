@@ -49,6 +49,29 @@ BEGIN
 			JOIN morph_Typen mpart ON Id_Bestandteil = mpart.Id_morph_Typ
 			JOIN VTBL_morph_Basistyp vb ON mpart.Id_morph_Typ = vb.Id_morph_Typ
 			JOIN Basistypen USING (Id_Basistyp);
+			
+	DROP TABLE IF EXISTS temp_token_konzept;
+	CREATE TABLE temp_token_konzept (
+		id_token INT UNSIGNED, 
+		bedeutung VARCHAR(500),
+		sprache CHAR(1),
+		id_konzept INT UNSIGNED, 
+		PRIMARY KEY(id_token, id_konzept)
+	);
+	INSERT IGNORE INTO temp_token_konzept SELECT Id_Token, Bedeutung, Sprache, Id_Konzept FROM VTBL_Token_Bedeutung JOIN Bedeutungen USING (Id_Bedeutung);
+	INSERT IGNORE INTO temp_token_konzept SELECT Id_Token, NULL, NULL, Id_Konzept FROM VTBL_token_konzept;
+	
+	DROP TABLE IF EXISTS temp_tokengruppe_konzept;
+	CREATE TABLE temp_tokengruppe_konzept (
+		id_tokengruppe INT UNSIGNED,
+		bedeutung VARCHAR(500),
+		sprache CHAR(1),
+		id_konzept INT UNSIGNED,
+		PRIMARY KEY(id_tokengruppe, id_konzept)
+	);
+	
+	INSERT IGNORE INTO temp_tokengruppe_konzept SELECT Id_Tokengruppe, Bedeutung, Sprache, Id_Konzept FROM VTBL_Tokengruppe_Bedeutung JOIN Bedeutungen USING (Id_Bedeutung) WHERE Id_Konzept IS NOT NULL;
+	INSERT IGNORE INTO temp_tokengruppe_konzept SELECT Id_Tokengruppe, NULL, NULL, Id_Konzept FROM VTBL_tokengruppe_konzept;
 	
 	DROP TABLE IF EXISTS z_ling_temp;
 	
@@ -63,6 +86,7 @@ BEGIN
 	  id_stimulus int(10) unsigned NOT NULL,
 	  Id_Concept int(11) unsigned DEFAULT NULL,
 	  QID int(10) unsigned DEFAULT NULL,
+	  Meaning varchar(500) DEFAULT NULL,
 	  Geo_Data varchar(100) DEFAULT NULL,
 	  Alpine_Convention tinyint(1) NOT NULL,
 	  Id_Community int(10) unsigned NOT NULL,
@@ -121,6 +145,7 @@ BEGIN
 		s.Id_Stimulus as Id_Stimulus,
 		k.Id_Konzept, 
 		k.QID,
+		IF(ttk.Bedeutung IS NULL, NULL, CONCAT(ttk.Sprache, ':', ttk.Bedeutung)) AS Bedeutung,
 		AsText(i.Georeferenz) as Geodaten,
 		i.Alpenkonvention as Alpenkonvention,
 		i.Id_Gemeinde,
@@ -162,7 +187,7 @@ BEGIN
 		LEFT JOIN Informanten i USING (Id_Informant)
 		LEFT JOIN Orte o ON o.Id_Ort = i.Id_Gemeinde
 		LEFT JOIN Bibliographie bib ON i.Erhebung = bib.Abkuerzung
-		LEFT JOIN VTBL_Token_Konzept v3 USING (Id_Token)
+		LEFT JOIN temp_token_konzept ttk USING (Id_Token)
 		LEFT JOIN Konzepte k USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Referenzen r USING (Id_morph_Typ)
@@ -188,6 +213,7 @@ BEGIN
 		s.Id_Stimulus as Id_Stimulus,
 		k.Id_Konzept,
 		k.QID,
+		IF(ttk.Bedeutung IS NULL, NULL, CONCAT(ttk.Sprache, ':', ttk.Bedeutung)) AS Bedeutung,
 		AsText(i.Georeferenz) as Geodaten,
 		i.Alpenkonvention as Alpenkonvention,
 		i.Id_Gemeinde,
@@ -226,7 +252,7 @@ BEGIN
 		LEFT JOIN Informanten i USING (Id_Informant)
 		LEFT JOIN Orte o ON o.Id_Ort = i.Id_Gemeinde
 		LEFT JOIN Bibliographie bib ON i.Erhebung = bib.Abkuerzung
-		LEFT JOIN VTBL_Token_Konzept v3 USING (Id_Token)
+		LEFT JOIN temp_token_konzept ttk USING (Id_Token)
 		LEFT JOIN Konzepte k USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
@@ -249,6 +275,7 @@ BEGIN
 		s.Id_Stimulus as Id_Stimulus,
 		k.Id_Konzept, 
 		k.QID,
+		IF(ttk.Bedeutung IS NULL, NULL, CONCAT(ttk.Sprache, ':', ttk.Bedeutung)) AS Bedeutung,
 		AsText(i.Georeferenz) as Geodaten,
 		i.Alpenkonvention as Alpenkonvention,
 		i.Id_Gemeinde,
@@ -287,7 +314,7 @@ BEGIN
 		LEFT JOIN Informanten i USING (Id_Informant)
 		LEFT JOIN Orte o ON o.Id_Ort = i.Id_Gemeinde
 		LEFT JOIN Bibliographie bib ON i.Erhebung = bib.Abkuerzung
-		LEFT JOIN VTBL_Token_Konzept v3 USING (Id_Token)
+		LEFT JOIN temp_token_konzept ttk USING (Id_Token)
 		LEFT JOIN Konzepte k USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN Orte_Uebersetzungen ou USING (Id_Ort)
@@ -312,6 +339,7 @@ BEGIN
 		s.Id_Stimulus as Id_Stimulus,
 		ko.Id_Konzept,
 		ko.QID,
+		IF(ttk.Bedeutung IS NULL, NULL, CONCAT(ttk.Sprache, ':', ttk.Bedeutung)) AS Bedeutung,
 		AsText(i.Georeferenz) as Geodaten,
 		i.Alpenkonvention as Alpenkonvention,
 		i.Id_Gemeinde,
@@ -353,7 +381,7 @@ BEGIN
 		LEFT JOIN Informanten i USING (Id_Informant)
 		LEFT JOIN Orte o ON o.Id_Ort = i.Id_Gemeinde
 		LEFT JOIN Bibliographie bib ON i.Erhebung = bib.Abkuerzung
-		LEFT JOIN VTBL_Tokengruppe_Konzept v3 USING (Id_Tokengruppe)
+		LEFT JOIN temp_tokengruppe_konzept ttk USING (Id_Tokengruppe)
 		LEFT JOIN Konzepte ko USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Referenzen r USING (Id_morph_Typ)
@@ -378,6 +406,7 @@ BEGIN
 		s.Id_Stimulus as Id_Stimulus,
 		ko.Id_Konzept,
 		ko.QID,
+		IF(ttk.Bedeutung IS NULL, NULL, CONCAT(ttk.Sprache, ':', ttk.Bedeutung)) AS Bedeutung,
 		AsText(i.Georeferenz) as Geodaten,
 		i.Alpenkonvention as Alpenkonvention,
 		i.Id_Gemeinde,
@@ -416,7 +445,7 @@ BEGIN
 		LEFT JOIN Informanten i USING (Id_Informant)
 		LEFT JOIN Orte o ON o.Id_Ort = i.Id_Gemeinde
 		LEFT JOIN Bibliographie bib ON i.Erhebung = bib.Abkuerzung
-		LEFT JOIN VTBL_Tokengruppe_Konzept v3 USING (Id_Tokengruppe)
+		LEFT JOIN temp_tokengruppe_konzept ttk USING (Id_Tokengruppe)
 		LEFT JOIN Konzepte ko USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
@@ -439,6 +468,7 @@ BEGIN
 		s.Id_Stimulus as Id_Stimulus,
 		ko.Id_Konzept,
 		ko.QID,
+		IF(ttk.Bedeutung IS NULL, NULL, CONCAT(ttk.Sprache, ':', ttk.Bedeutung)) AS Bedeutung,
 		AsText(i.Georeferenz) as Geodaten,
 		i.Alpenkonvention as Alpenkonvention,
 		i.Id_Gemeinde,
@@ -477,7 +507,7 @@ BEGIN
 		LEFT JOIN Informanten i USING (Id_Informant)
 		LEFT JOIN Orte o ON o.Id_Ort = i.Id_Gemeinde
 		LEFT JOIN Bibliographie bib ON i.Erhebung = bib.Abkuerzung
-		LEFT JOIN VTBL_Tokengruppe_Konzept v3 USING (Id_Tokengruppe)
+		LEFT JOIN temp_tokengruppe_konzept ttk USING (Id_Tokengruppe)
 		LEFT JOIN Konzepte ko USING (Id_Konzept)
 		LEFT JOIN Stimuli s USING (Id_Stimulus)
 		LEFT JOIN A_Punkt_Index a ON i.Georeferenz = a.Geodaten
@@ -486,6 +516,9 @@ BEGIN
 		m.Id_morph_Typ IS NULL AND p.Id_phon_Typ IS NULL
 		AND (Grammatikalisch IS NULL OR Grammatikalisch = 0) AND
 		i.Georeferenz IS NOT NULL AND i.Georeferenz != '' AND GeometryType(i.Georeferenz) = 'POINT' AND i.Id_Gemeinde IS NOT NULL;
+		
+	DROP TABLE temp_token_konzept;
+	DROP TABLE temp_tokengruppe_konzept;
 		
 	START TRANSACTION;
 	RENAME TABLE z_ling TO z_ling_old;
