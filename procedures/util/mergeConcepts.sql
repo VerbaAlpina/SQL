@@ -37,6 +37,9 @@ BEGIN
 	-- Bedeutungen
 	UPDATE Bedeutungen SET Id_Konzept = id_new WHERE Id_Konzept = id_old;
 	
+	-- Extern
+	UPDATE PVA_DRG.VTBL_Lemma_Konzept SET Id_Konzept = id_new WHERE Id_Konzept = id_old;
+	
 	
 	INSERT INTO id_chronik (Id_Entfernt, Id_Behalten) VALUES(CONCAT('C', id_old), CONCAT('C', id_new));
 
