@@ -76,7 +76,7 @@ BEGIN
 	DROP TABLE IF EXISTS z_ling_temp;
 	
 	CREATE TABLE z_ling_temp (
-	  Id_Instance bigint(20) unsigned DEFAULT NULL,
+	  Id_Instance bigint(20) unsigned NOT NULL,
 	  Instance varchar(5000) CHARACTER SET utf8mb4 NOT NULL,
 	  Instance_Encoding enum('1','2','3','4') NOT NULL,
 	  Instance_Original varchar(5000) CHARACTER SET utf8mb4 NOT NULL,
