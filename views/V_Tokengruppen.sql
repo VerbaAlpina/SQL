@@ -1,4 +1,6 @@
-DROP VIEW IF EXISTS V_Tokengruppen;
+DELIMITER $$
+
+DROP VIEW IF EXISTS V_Tokengruppen$$
 
 CREATE VIEW V_Tokengruppen AS
 
@@ -25,4 +27,6 @@ FROM Tokens t
 	LEFT JOIN VTBL_Token_phon_Typ v2 USING (Id_Token) LEFT JOIN phon_Typen p USING (Id_phon_Typ)
 WHERE 
 	NOT EXISTS (SELECT * FROM VTBL_Token_Konzept v WHERE v.Id_Token = t.Id_Token AND (Id_Konzept = 779 OR (Id_Konzept = 699 AND Ebene_3 = 1))) -- ARTIKEL AM ANFANG UND SONDERZEICHEN AUSSORTIEREN
-GROUP BY Id_Tokengruppe)
+GROUP BY Id_Tokengruppe)$$
+
+DELIMITER ;
