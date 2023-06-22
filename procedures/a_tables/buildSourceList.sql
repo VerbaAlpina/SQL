@@ -28,7 +28,13 @@ BEGIN
 	FROM (
 		SELECT Id_Informant, Id_morph_Typ FROM Tokens JOIN VTBL_Token_morph_Typ USING (Id_Token) 
 			UNION 
-		SELECT Id_Informant, Id_morph_Typ FROM V_Tokengruppen JOIN VTBL_Tokengruppe_morph_Typ USING (Id_Tokengruppe)) t JOIN VTBL_morph_Basistyp USING (Id_morph_Typ) JOIN Informanten USING (Id_Informant)
+		SELECT Id_Informant, Id_morph_Typ FROM V_Tokengruppen JOIN VTBL_Tokengruppe_morph_Typ USING (Id_Tokengruppe)
+			UNION
+		SELECT Id_Informant, Id_Bestandteil AS Id_morph_Typ FROM Tokens JOIN VTBL_Token_morph_Typ USING (Id_Token) JOIN vtbl_morph_typ_bestandteile vmtb USING (Id_morph_Typ)
+			UNION
+		SELECT Id_Informant, Id_Bestandteil AS Id_morph_Typ FROM V_Tokengruppen JOIN VTBL_Tokengruppe_morph_Typ USING (Id_Tokengruppe) JOIN vtbl_morph_typ_bestandteile vmtb USING (Id_morph_Typ)
+		) t 
+	JOIN VTBL_morph_Basistyp USING (Id_morph_Typ) JOIN Informanten USING (Id_Informant)
 	GROUP BY Id_Basistyp
 
 	UNION
